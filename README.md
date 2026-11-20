@@ -81,3 +81,34 @@ CLI читает индекс сервисов NuGet v3, находит `Package
 `D → B` замыкает цикл. При `--exclude b` остаётся цепочка
 `A → C → D`. От `B@2.0.0` достижим пакет `G` с ребром к самому
 себе. Пакет `F` изолирован.
+
+## Этап 4. Обратные зависимости
+
+Опция `--reverse` разворачивает рёбра и запускает тот же итеративный DFS.
+CLI выводит прямых и транзитивных потребителей выбранной версии.
+В тестовом режиме рассматриваются все пакеты и версии из JSON, в том
+числе пакеты за пределами прямого графа выбранного корня.
+
+```sh
+./run.sh --test --repo examples/repository.json --package D --version 1.0.0 --reverse
+./run.sh --test --repo examples/repository.json --package D --version 1.0.0 --reverse --exclude c
+./run.sh --test --repo examples/repository.json --package F --version 1.0.0 --reverse
+./run.sh --test --repo examples/repository.json --package G --version 1.0.0 --reverse
+```
+
+- Для `D@1.0.0` результат — `B`, `A`, `C`, `E` версии 1.0.0.
+  `E` найден через `C`, хотя его нет в графе зависимостей `A`.
+- С `--exclude c` для `D@1.0.0` остаются `B` и `A`.
+- У изолированного `F@1.0.0` результат пустой.
+- У `G@1.0.0` результат — только `B@2.0.0`. Петля на `G` в
+  графе сохраняется, а сам корень в список потребителей не входит.
+
+В NuGet v3 поиск потребителей работает по графу указанных пакетов.
+Для каждого корня требуется отдельная опция `--from-package ИМЯ@ВЕРСИЯ`.
+Границы поиска заданы явно, потому что индекс `PackageBaseAddress`
+предоставляет метаданные пакетов по известному идентификатору.
+
+```sh
+./run.sh --package Microsoft.Extensions.Primitives --version 8.0.0 --reverse \
+  --from-package Microsoft.Extensions.Logging@8.0.0 --exclude System
+```
